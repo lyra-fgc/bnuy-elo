@@ -85,4 +85,4 @@ for player in new_elo_dict :
     if cell :
         elo_ws.update_cell(cell.row + sheet_details["elo_row_offset"], cell.col + sheet_details["elo_col_offset"], new_elo_dict[player])
     else : 
-        elo_ws.append_rows(values=[[player, new_elo_dict[player]]])
+        elo_ws.append_rows(values=[[player] + ["" for i in range(sheet_details["elo_col_offset"]-1)] + [new_elo_dict[player]]])
