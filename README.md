@@ -22,7 +22,7 @@ The second sheet will be used to correspond Challonge username to the displayed 
 # 
 The only thing left is filling the details in the .json files here. 
 
-In sheet_details.json, fill the sheet_name (displayed at the top left of the Google Sheets), the name of the worksheet used for ELO and the name of the worksheet used for player names. You can also change the base ELO value and the K-factor that represents the maximum gain/loss in a single match.
+In sheet_details.json, fill the sheet_name (displayed at the top left of the Google Sheets), the name of the worksheet used for ELO and the name of the worksheet used for player names. You can also change the base ELO value and the K-factor that represents the maximum gain/loss in a single match. You can also set the ELO value for first entries with the unseeded_elo_value field.
 
 In challonge_credentials.json, fill in your Challonge username and your API key.
 #
@@ -35,3 +35,5 @@ This will update the names sheet with new participants from this tournament.
 You can then run bnuy-elo.py. Similarly enter the name or URL of the tournament. This will update ELO on the ELO sheet using the tournament results, inserting any new participant with the baseline ELO (pre-calculation). You might want to make a copy of the ELO sheet before running this in case you want to rollback.
 
 If you now want to change the displayed names of certain participants, you can change it on the ELO Sheet and enter the new displayed name in the "Player Name" column in the corresponding player's row in the Player Names sheet.
+
+You can also seed tournaments using an existing ELO ranking. In a similar fashion to the previous scripts, run bnuy-seed.py, enter the name or URL of the tournament and it will be seeded using ELO values from the provided ELO sheet. Default value for participants not appearing in the ELO sheet can be changed in the sheet_details.json file.
