@@ -25,8 +25,9 @@ for player in elo_list :
 for player in names_list :
     names_dict[player["Challonge_ID"]] = player["Player_Name"]
 
-tournament_name = input("Enter tournament ID (e.g. 10230) or URL (e.g. 'single_elim' for challonge.com/single_elim).\nIf assigned to a subdomain, URL format must be :subdomain-:tournament_url (e.g. 'test-mytourney' for test.challonge.com/mytourney)\n")
-tournament = challonge.tournaments.show(tournament_name)
+user_input = input("Enter tournament ID (e.g. 10230) or URL (e.g. 'single_elim' for challonge.com/single_elim). If assigned to a subdomain, URL format must be :subdomain-:tournament_url (e.g. 'test-mytourney' for test.challonge.com/mytourney)\n"
+                        "You can enter extra options after tournament ID to restrict seeding e.g. top-8 if you want to only seed the 8 highest rated players.\n")
+tournament = challonge.tournaments.show(user_input.split(" ")[0])
 
 # Retrieve the participants
 participants = challonge.participants.index(tournament["id"])
@@ -36,11 +37,11 @@ print("Preparing to update tournament seeding, there are currently", len(partici
 # Create a dictionnary to match challonge user id with tournament user id
 # Create a dictionnary to match tournament user name with tournament user id
 challonge_user_id_dict = {}
-challonge_tournament_name_dict = {}
+challonge_user_input_dict = {}
 
 for p in participants :
     challonge_user_id_dict[p["id"]] = p["challonge_user_id"]
-    challonge_tournament_name_dict[p["id"]] = p["name"]
+    challonge_user_input_dict[p["id"]] = p["name"]
     
 # Create dictionnaries to access ELO by displayed player name
 elo_dict = {}
@@ -63,14 +64,24 @@ for id in challonge_user_id_dict :
     elo_user_list.append({"id": id, 
                           "elo": player_elo, 
                           "ELO_name": player_name, 
-                          "name": challonge_tournament_name_dict[id]})
+                          "name": challonge_user_input_dict[id]})
 
 def eloSort(entry) :
     return entry["elo"]
 elo_user_list.sort(key=eloSort)
 
+def seedValid(nb_entrants, seed, user_input) :
+    if (len(user_input.split(" ")) > 1) :
+        criteria = user_input.split(" ")[1].split("-")
+        if (criteria[0] == "top") :
+            return seed <= int(criteria[1])
+        elif (criteria[0] == "bottom") :
+            return seed >= nb_entrants - int(criteria[1]) + 1
+    return True
+
 for i in range(0, len(elo_user_list)) :
-    print("User", elo_user_list[i], "is being seeded", (len(elo_user_list) - i))
-    challonge.participants.update(tournament["id"], elo_user_list[i]["id"], 
-                                  name=elo_user_list[i]["name"], 
-                                  seed=(len(elo_user_list) - i))
+    if seedValid(len(elo_user_list), len(elo_user_list)-i, user_input) :
+        print("User", elo_user_list[i], "is being seeded", (len(elo_user_list) - i))
+        challonge.participants.update(tournament["id"], elo_user_list[i]["id"], 
+                                    name=elo_user_list[i]["name"], 
+                                    seed=(len(elo_user_list) - i))
