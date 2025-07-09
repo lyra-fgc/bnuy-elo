@@ -1,0 +1,53 @@
+query GetTournament($slug: String!) {
+  tournament(slug: $slug) {
+    name
+    events(filter: {videogameId: 37}) {
+      id
+      name
+      videogame {
+        name
+      }
+      entrants(query: {page: 0, perPage: 500}) {
+        pageInfo {
+          totalPages
+        }
+        nodes {
+          id
+          participants {
+            player {
+              id
+              gamerTag
+            }
+          }
+        }
+      }
+      sets {
+        pageInfo {
+          total
+        }
+      }
+    }
+  }
+}
+
+query GetSetPage($eventId: ID!, $page: Int!, $perPage: Int!) {
+  event(id: $eventId) {
+    sets(page: $page, perPage: $perPage) {
+      nodes {
+        id
+        slots {
+          standing {
+            stats {
+              score {
+                value
+              }
+            }
+          }
+          entrant {
+            id
+          }
+        }
+      }
+    }
+  }
+}
