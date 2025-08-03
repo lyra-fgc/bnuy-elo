@@ -56,7 +56,7 @@ if tournament_platform == "challonge.com" :
     # We will store the matches in a per-participant basis to facilitate ELO calculation
     # participant_matches[user_id] = [{"win_status", "opponent_id", "forfeited"}]
     participants_matches = {}
-    for id in challonge_user_id_dict :
+    for id in challonge_user_id_dict.values() :
         participants_matches[id] = []
 
     # Fill the per-participant matches
