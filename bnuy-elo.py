@@ -1,10 +1,16 @@
 import json
 import challonge 
 import gspread
+import helpers
+import startgg
 
 # Challonge setup
 challonge_credentials = json.load(open("challonge_credentials.json"))
 challonge.set_credentials(challonge_credentials["username"], challonge_credentials["private_key"])
+
+# start.gg setup
+startgg_credentials = json.load(open("startgg_credentials.json"))
+startgg.set_access_token(startgg_credentials["access_token"])
 
 # Google Sheets setup
 sheet_details = json.load(open("sheet_details.json"))
@@ -19,69 +25,104 @@ names_list = names_ws.get_all_records()
 
 print("Preparing to update ELO ratings, there are currently", len(names_list),"players on the list")
 
+(tournament_platform, tournament_name) = helpers.read_tournament_url()
+
 # Create dictionnaries to access ELO by displayed player name
 elo_dict = {}
 names_dict = {}
 
 for player in elo_list :
     elo_dict[player["Player Name"]] = player["ELO Score"]
-for player in names_list :
-    names_dict[player["Challonge_ID"]] = player["Player_Name"]
 
-tournament_name = input("Enter tournament ID (e.g. 10230) or URL (e.g. 'single_elim' for challonge.com/single_elim).\nIf assigned to a subdomain, URL format must be :subdomain-:tournament_url (e.g. 'test-mytourney' for test.challonge.com/mytourney)\n")
-tournament = challonge.tournaments.show(tournament_name)
 
-# Retrieve the participants
-participants = challonge.participants.index(tournament["id"])
+if tournament_platform == "challonge.com" :
+    for player in names_list :
+        names_dict[player["Challonge_ID"]] = player["Player_Name"]
 
-# Create a dictionnary to match challonge user id with tournament user id
-challonge_user_id_dict = {}
+    tournament = challonge.tournaments.show(tournament_name)
 
-for p in participants :
-    challonge_user_id_dict[p["id"]] = p["challonge_user_id"]
-    
-# Retrieve the matches    
-matches = challonge.matches.index(tournament["id"])
+    # Retrieve the participants
+    participants = challonge.participants.index(tournament["id"])
 
-# We will store the matches in a per-participant basis to facilitate ELO calculation
-# participant_matches[user_id] = [{"win_status", "opponent_id", "forfeited"}]
-participants_matches = {}
-for id in challonge_user_id_dict :
-    participants_matches[id] = []
+    # Create a dictionnary to match challonge user id with tournament user id
+    challonge_user_id_dict = {}
 
-# Fill the per-participant matches
-for match in matches : 
-    winner_dict = {}
-    loser_dict = {}
-    
-    winner_dict["win_status"] = 1
-    winner_dict["opponent_id"] = match["loser_id"]
-    winner_dict["forfeited"] = match["forfeited"]
-    
-    loser_dict["win_status"] = 0
-    loser_dict["opponent_id"] = match["winner_id"]
-    loser_dict["forfeited"] = match["forfeited"]
-    
-    participants_matches[match["winner_id"]].append(winner_dict)
-    participants_matches[match["loser_id"]].append(loser_dict)
-    
+    for p in participants :
+        challonge_user_id_dict[p["id"]] = p["challonge_user_id"]
+        
+    # Retrieve the matches    
+    matches = challonge.matches.index(tournament["id"])
+
+    # We will store the matches in a per-participant basis to facilitate ELO calculation
+    # participant_matches[user_id] = [{"win_status", "opponent_id", "forfeited"}]
+    participants_matches = {}
+    for id in challonge_user_id_dict :
+        participants_matches[id] = []
+
+    # Fill the per-participant matches
+    for match in matches : 
+        winner_dict = {}
+        loser_dict = {}
+
+        winner_id = challonge_user_id_dict[match["winner_id"]]
+        loser_id = challonge_user_id_dict[match["loser_id"]]
+        
+        winner_dict["win_status"] = 1
+        winner_dict["opponent_id"] = loser_id
+        winner_dict["forfeited"] = match["forfeited"]
+        
+        loser_dict["win_status"] = 0
+        loser_dict["opponent_id"] = winner_id
+        loser_dict["forfeited"] = match["forfeited"]
+        
+        participants_matches[winner_id].append(winner_dict)
+        participants_matches[loser_id].append(loser_dict)
+
+elif tournament_platform == "www.start.gg" :
+    for player in names_list :
+        names_dict[player["StartGG_ID"]] = player["Player_Name"]
+    players = startgg.get_players(tournament_name)
+    sets = startgg.get_sets(tournament_name)
+
+    participants_matches = {}
+    for p in players :
+        participants_matches[p["id"]] = []
+
+    for set in sets :
+        winner = max(set["players"], key=lambda p: p["score"])
+        loser = min(set["players"], key=lambda p: p["score"])
+
+        winner_dict = {
+            "win_status": 1,
+            "opponent_id": loser["id"],
+            "forfeited": loser["score"] == -1
+        }
+        loser_dict = {
+            "win_status": 0,
+            "opponent_id": winner["id"],
+            "forfeited": loser["score"] == -1
+        }
+
+        participants_matches[winner["id"]].append(winner_dict)
+        participants_matches[loser["id"]].append(loser_dict)
+
+
 # Compute the new ELO values and store them in a dict
 new_elo_dict = {}
 for participant in participants_matches :   
     if (len(participants_matches[participant]) != 0) :      
-        challonge_id = challonge_user_id_dict[participant]
-        player_name = names_dict.get(challonge_id)
+        player_name = names_dict.get(participant)
         sheet_elo = elo_dict.get(player_name)
         player_elo = sheet_details["elo_base_value"]
         if sheet_elo :
             player_elo = sheet_elo
         else : 
-            print("Adding new user", challonge_id, player_name, "with baseline ELO", sheet_details["elo_base_value"])
+            print("Adding new user", participant, player_name, "with baseline ELO", sheet_details["elo_base_value"])
         new_elo = player_elo
         for match in participants_matches[participant] : 
             if (match["forfeited"]) != True : 
                 win_status = match["win_status"]
-                other_name = names_dict.get(challonge_user_id_dict[match["opponent_id"]])
+                other_name = names_dict.get(match["opponent_id"])
                 other_elo = sheet_details["elo_base_value"]
                 other_sheet_elo = elo_dict.get(other_name)
                 if other_sheet_elo : 
