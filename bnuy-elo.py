@@ -1,3 +1,7 @@
+# /// script
+# dependencies = ["pychallonge", "gspread"]
+# ///
+
 import json
 import challonge 
 import gspread
