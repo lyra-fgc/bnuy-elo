@@ -24,7 +24,7 @@ sa = gspread.service_account(filename="credentials.json")
 sh = sa.open(sheet_details["sheet_name"])
 names_ws = sh.worksheet(sheet_details["player_names_worksheet"])
 
-names_list = names_ws.get_all_records()
+names_list = names_ws.get_all_records(numericise_ignore = [2,4,5])
 print("Preparing to update player names, there are currently", len(names_list), "players on the list")
 
 (tournament_platform, tournament_name) = helpers.read_tournament_url()
@@ -35,7 +35,8 @@ if tournament_platform == "challonge.com" :
     users = [{"id": p["challonge_user_id"], "name": p["username"]} for p in participants]
     existing_ids = {g["Challonge_ID"] for g in names_list}
     def check_similar(line, user_name) :
-        return line["StartGG_GamerTag"].casefold() == user_name.casefold()
+        return (line["StartGG_GamerTag"].casefold() == user_name.casefold() or
+                line["Player_Name"].casefold() == user_name.casefold() )
     def get_sheet_values(user, existing_line = {}) :
         return [[user["id"], user["name"],
                  existing_line.get("StartGG_ID", ''), existing_line.get("StartGG_GamerTag", ''),
@@ -46,7 +47,8 @@ elif tournament_platform == "www.start.gg" :
     users = [{"id": p["id"], "name": p["gamerTag"]} for p in players]
     existing_ids = {g["StartGG_ID"] for g in names_list}
     def check_similar(line, user_name) :
-        return line["Challonge_Name"].casefold() == user_name.casefold()
+        return (line["Challonge_Name"].casefold() == user_name.casefold() or
+                line["Player_Name"].casefold() == user_name.casefold())
     def get_sheet_values(user, existing_line = {}) :
         return [[existing_line.get("Challonge_ID", ''), existing_line.get("Challonge_Name", ''),
                  user["id"], user["name"],
