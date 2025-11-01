@@ -56,7 +56,7 @@ def get_sets(tournament_slug):
         for set in data["event"]["sets"]["nodes"]:
             result.append({
                 "id": set["id"],
-                "players": [{"id": player_ids[slot["entrant"]["id"]], "score": slot["standing"]["stats"]["score"]["value"]} for slot in set["slots"]]
+                "players": [{"id": player_ids[slot["entrant"]["id"]], "score": (slot["standing"]["stats"]["score"]["value"] or 0)} for slot in set["slots"]]
             })
 
     return result
